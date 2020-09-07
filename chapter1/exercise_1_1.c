@@ -11,6 +11,14 @@
 #define ROOT_DIR "/"
 #define FILE_SEPARATOR "/"
 
+char *makeMyDirectoryName(struct dirent *dirp, char *prefix) {
+	size_t space = (size_t)(strlen(dirp->d_name) + strlen(prefix) + 1);
+	char *name = calloc(sizeof(char), space);
+	strcpy(name, FILE_SEPARATOR);
+	strcpy(name+strlen(FILE_SEPARATOR), dirp->d_name);
+	return name;
+}
+
 int main() {
 	// Problem:
 	//	1) Prove that . and .. are different directories in every directory aside from /
@@ -23,49 +31,32 @@ int main() {
 	DIR *dp;
 	int pid, status;
 
-	int *counter = malloc(sizeof(int));
-	*counter = 0;
-
 	dp = opendir(ROOT_DIR);
         while ((dirp = readdir(dp)) != NULL) {
 		char* prefix = ROOT_DIR;
 		if (strcmp(".", dirp->d_name) == 0 || strcmp("..", dirp->d_name) == 0) {
 			prefix = "";
 		}
-                printf("%s%s\n", prefix, dirp->d_name);
+		fprintf(stdout, "%s%s\n", prefix, dirp->d_name);
 
 		if ((pid = fork()) < 0) {
 			fprintf(stderr, "Fork error\n");
 			exit(1);
 		} else if (pid == 0) {
 			FILE *log = fopen("child.log", "ab");
-			fprintf(log, "Child pid: %d\n", getpid());
-			*counter = *counter + 1;
-			fflush(log);
 
-			fprintf(log, "Counter: %d\tFilename: %s\tName length: %lu\tPrefix: %s\tPrefix length: %lu\n", *counter, dirp->d_name, strlen(dirp->d_name), prefix, strlen(prefix));
-			fflush(log);
+			char *myDirName = makeMyDirectoryName(dirp, prefix);
+			fprintf(log, "Pid: %d\tPath: %s\n", getpid(), myDirName);
 
-			size_t space = (size_t)(strlen(dirp->d_name) + strlen(prefix) + 1);
-			fprintf(log, "Allocating space %lu for path\n", space);
-			fflush(log);
-			char *name = calloc(sizeof(char), space);
-			fprintf(log, "Allocated space for path\n");
-			strcpy(FILE_SEPARATOR, name);
-			fprintf(log, "Separator: %s\n", name);
-			fflush(log);
-			strcpy(dirp->d_name, name+strlen(FILE_SEPARATOR));
-			fprintf(log, "Path: %s\n", name);
-
+			free(myDirName);
 			fclose(log);
 			exit(0);
 		} else {
-			fprintf(stderr, "Spawned child process %d\n", pid);
 			if ((pid = waitpid(pid, &status, 0)) < 0) {
 				fprintf(stderr, "Waitpid error!\n");
+			} else if (errno != 0) {
+				fprintf(stderr, "Waited for child process %d status %d\n\terrorno: %d\terror: %s\n", pid, status, errno, strerror(errno));
 			}
-			fprintf(stderr, "Waited for child process %d counter %d status %d\n\terrorno: %d\terror: %s\n", pid, *counter, status, errno, strerror(errno));
-			perror("Child process returned...");
 		}
         }
 	closedir(dp);
