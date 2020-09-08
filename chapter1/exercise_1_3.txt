@@ -1,0 +1,3 @@
+The integer is pass-by-value meaning that the original can not be changed.
+The const keyword is necessary because the string is represented as a char pointer to the original, meaning it is possible for the function to mutate the contents of the string.
+The const keyword asks the complier to prevent this from happening.
